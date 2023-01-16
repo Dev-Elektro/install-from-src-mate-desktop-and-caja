@@ -1,0 +1,179 @@
+---
+- name: Сборка и установка mate-desktop и caja версии 1.27.0
+  hosts: "{{ target }}"
+
+  tasks:
+  - name: Установка необходимых пакетов
+    dnf:
+      name: "{{ item }}"
+      state: latest
+    loop:
+    - mate-common
+    - gobject-introspection-devel
+    - dconf-devel
+    - gdk-pixbuf2-devel
+    - gtk3-devel
+    - iso-codes-devel
+    - libnotify-devel
+    - gtk+-devel
+    - libgtop2-devel
+    - gcc-c++
+    - clang
+    - meson
+    - ninja-build
+    - libuuid-devel
+    - gstreamer1-plugins-base-devel
+    - python3-gobject-devel
+    - libXres-devel
+    - libcanberra-devel
+    - dbus-glib-devel
+    - git
+    become: true
+
+  - name: Создаем временную директорию
+    file:
+      path: /tmp/mate-src
+      state: directory
+      mode: '777'
+
+  - name: Загрузка исходников
+    shell:
+      cmd: "{{ item }}"
+      chdir: /tmp/mate-src/
+    args:
+      warn: false
+    loop:
+    - rm -rf mate-desktop && git clone https://github.com/mate-desktop/mate-desktop.git
+    - rm -rf marco && git clone https://github.com/mate-desktop/marco.git
+    - rm -rf caja && git clone --recurse-submodules https://github.com/mate-desktop/caja.git
+    - rm -rf caja-actions && git clone https://github.com/mate-desktop/caja-actions.git
+    - rm -rf caja-extensions && git clone https://github.com/mate-desktop/caja-extensions.git
+    - rm -rf python-caja && git clone https://github.com/mate-desktop/python-caja.git
+
+  - name: Загрузка исходников GLib-2.66.7
+    unarchive:
+      src: 'https://download.gnome.org/sources/glib/2.66/glib-2.66.7.tar.xz'
+      dest: /tmp/mate-src
+      remote_src: yes
+
+  - name: Подготовка исходников GLib
+    shell:
+      cmd: meson _build
+      chdir: /tmp/mate-src/glib-2.66.7
+
+  - name: Сборка GLib
+    shell:
+      cmd: ninja -C _build
+      chdir: /tmp/mate-src/glib-2.66.7
+
+  - name: Установка GLib
+    shell:
+      cmd: ninja -C _build install
+      chdir: /tmp/mate-src/glib-2.66.7
+    become: true
+
+  - name: Подготовка исходников mate-desktop к сборке
+    shell:
+      cmd: ./autogen.sh --prefix=/usr
+      chdir: /tmp/mate-src/mate-desktop
+
+  - name: Сборка mate-desktop
+    shell:
+      cmd: make
+      chdir: /tmp/mate-src/mate-desktop
+
+  - name: Установка mate-desktop
+    shell:
+      cmd: make install
+      chdir: /tmp/mate-src/mate-desktop
+    become: true
+
+  - name: Подготовка исходников marco к сборке
+    shell:
+      cmd: ./autogen.sh
+      chdir: /tmp/mate-src/marco
+
+  - name: Сборка marco
+    shell:
+      cmd: make
+      chdir: /tmp/mate-src/marco
+
+  - name: Установка marco
+    shell:
+      cmd: make install
+      chdir: /tmp/mate-src/marco
+    become: true
+
+  - name: Подготовка исходников caja к сборке
+    shell:
+      cmd: ./autogen.sh --prefix=/usr
+      chdir: /tmp/mate-src/caja
+
+  - name: Сборка caja, может занять примерно 3 минуты
+    shell:
+      cmd: make
+      chdir: /tmp/mate-src/caja
+
+  - name: Установка caja
+    shell:
+      cmd: make install
+      chdir: /tmp/mate-src/caja
+    become: true
+
+  - name: Подготовка исходников caja-actions к сборке
+    shell:
+      cmd: ./autogen.sh
+      chdir: /tmp/mate-src/caja-actions
+
+  - name: Сборка caja-actions, может занять примерно 3 минуты
+    shell:
+      cmd: make
+      chdir: /tmp/mate-src/caja-actions
+    register: res
+    delay: 5
+    retries: 3
+    until: res.rc == 0
+    failed_when: res.rc != 0
+
+  - name: Установка caja-actions
+    shell:
+      cmd: make install
+      chdir: /tmp/mate-src/caja-actions
+    become: true
+
+  - name: Подготовка исходников caja-extensions к сборке
+    shell:
+      cmd: ./autogen.sh
+      chdir: /tmp/mate-src/caja-extensions
+
+  - name: Сборка caja-extensions
+    shell:
+      cmd: make
+      chdir: /tmp/mate-src/caja-extensions
+
+  - name: Установка caja-extensions
+    shell:
+      cmd: make install
+      chdir: /tmp/mate-src/caja-extensions
+    become: true
+
+  - name: Подготовка исходников python-caja к сборке
+    shell:
+      cmd: ./autogen.sh
+      chdir: /tmp/mate-src/python-caja
+
+  - name: Сборка python-caja
+    shell:
+      cmd: make
+      chdir: /tmp/mate-src/python-caja
+
+  - name: Установка python-caja
+    shell:
+      cmd: make install
+      chdir: /tmp/mate-src/python-caja
+    become: true
+
+  - name: Удаление временной директории
+    file:
+      path: /tmp/mate-src
+      state: absent
