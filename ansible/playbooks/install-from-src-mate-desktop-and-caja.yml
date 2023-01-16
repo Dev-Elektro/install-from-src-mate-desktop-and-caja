@@ -58,7 +58,7 @@
 
   - name: Подготовка исходников GLib
     shell:
-      cmd: meson _build
+      cmd: meson _build --prefix=/usr
       chdir: /tmp/mate-src/glib-2.66.7
 
   - name: Сборка GLib
