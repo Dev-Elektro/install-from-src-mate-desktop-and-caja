@@ -28,6 +28,7 @@
     - libcanberra-devel
     - dbus-glib-devel
     - git
+    - xdotool
     become: true
 
   - name: Создаем временную директорию
