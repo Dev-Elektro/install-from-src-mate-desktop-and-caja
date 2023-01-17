@@ -109,7 +109,7 @@
       cmd: ./autogen.sh --prefix=/usr
       chdir: /tmp/mate-src/caja
 
-  - name: Сборка caja, может занять примерно 3 минуты
+  - name: Сборка caja
     shell:
       cmd: make
       chdir: /tmp/mate-src/caja
@@ -125,13 +125,13 @@
       cmd: ./autogen.sh
       chdir: /tmp/mate-src/caja-actions
 
-  - name: Сборка caja-actions, может занять примерно 3 минуты
+  - name: Сборка caja-actions
     shell:
       cmd: make
       chdir: /tmp/mate-src/caja-actions
     register: res
     delay: 5
-    retries: 3
+    retries: 5
     until: res.rc == 0
     failed_when: res.rc != 0
 
@@ -177,3 +177,33 @@
     file:
       path: /tmp/mate-src
       state: absent
+
+  - name: Создание правила udev
+    copy:
+      dest: /etc/udev/rules.d/99-hotplug-monitor.rules
+      content: SUBSYSTEM=="drm", ACTION=="change", RUN+="/usr/bin/at -Mf /usr/bin/hotplug-monitor now"
+    become: true
+
+  - name: Создание скрипта
+    copy:
+      dest: /usr/bin/hotplug-monitor
+      content: |
+        #!/usr/bin/bash
+
+        export DISPLAY=:0.0
+        USER_NAME=`who | grep "(:0)" | cut -f 1 -d ' '`
+        sleep 1
+        sudo -u $USER_NAME wmctrl -k on
+        sudo -u $USER_NAME xdotool key F5
+        sudo -u $USER_NAME wmctrl -k off
+    become: true
+
+  - name: Установка прав
+    file:
+      path: /usr/bin/hotplug-monitor
+      mode: a+x
+    become: true
+
+  - name: Перезагрузка правил
+    shell: udevadm control --reload-rules
+    become: true
